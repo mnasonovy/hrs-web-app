@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+
+{% block title %}HRS SOC · Инциденты{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <div class="hero-content">
+        <div>
+            <div class="hero-kicker">INCIDENT REGISTRY</div>
+            <h1>Реестр инцидентов</h1>
+            <p>
+                Централизованный журнал событий безопасности. Данные хранятся в PostgreSQL,
+                обновляются через WEB-интерфейс и используются для демонстрации взаимодействия
+                сайта с базой данных.
+            </p>
+        </div>
+
+        <div class="status-chip">
+            Найдено: <span class="status-online">{{ total }}</span>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Создать инцидент</h2>
+            <p class="panel-subtitle">Добавление новой записи напрямую в PostgreSQL.</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('add_incident') }}" class="form-grid">
+        <input type="text" name="title" placeholder="Название инцидента" required>
+
+        <select name="severity">
+            {% for severity in severities %}
+                <option value="{{ severity }}" {% if severity == "средняя" %}selected{% endif %}>{{ severity }}</option>
+            {% endfor %}
+        </select>
+
+        <select name="status">
+            {% for status in statuses %}
+                <option value="{{ status }}" {% if status == "открыт" %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="text" name="source_ip" placeholder="IP источника">
+        <input type="text" name="asset" placeholder="Актив" value="HRS-WEB">
+
+        <button type="submit" class="btn-primary">Создать</button>
+
+        <select name="category">
+            {% for category in categories %}
+                <option value="{{ category }}">{{ category }}</option>
+            {% endfor %}
+        </select>
+
+        <input type="text" name="assignee" placeholder="Ответственный" value="HRS SOC">
+
+        <textarea name="description" placeholder="Описание инцидента"></textarea>
+        <textarea name="recommendation" placeholder="Рекомендация по обработке"></textarea>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Фильтры</h2>
+            <p class="panel-subtitle">Не показываем все 100 записей разом. Мы же не варвары.</p>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('incidents') }}" class="filter-grid">
+        <input type="text" name="q" placeholder="Поиск по названию, IP, активу, ответственному"
+               value="{{ search_query }}">
+
+        <select name="severity">
+            <option value="all" {% if selected_severity == "all" %}selected{% endif %}>любая критичность</option>
+            {% for severity in severities %}
+                <option value="{{ severity }}" {% if selected_severity == severity %}selected{% endif %}>
+                    {{ severity }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <select name="status">
+            <option value="all" {% if selected_status == "all" %}selected{% endif %}>любой статус</option>
+            {% for status in statuses %}
+                <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>
+                    {{ status }}
+                </option>
+            {% endfor %}
+        </select>
+
+        <button type="submit" class="btn-soft">Применить</button>
+
+        <select name="category">
+            <option value="all" {% if selected_category == "all" %}selected{% endif %}>любая категория</option>
+            {% for category in categories %}
+                <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>
+                    {{ category }}
+                </option>
+            {% endfor %}
+        </select>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Инциденты</h2>
+            <p class="panel-subtitle">
+                Страница {{ page }} из {{ total_pages }} · отображается до {{ per_page }} записей.
+            </p>
+        </div>
+    </div>
+
+    <div class="incident-list">
+        {% for incident in incidents %}
+            <article class="incident-card {% if incident.severity == 'критическая' %}critical{% endif %}">
+                <div class="incident-top">
+                    <div class="incident-title-wrap">
+                        <span class="id-badge">#{{ incident.id }}</span>
+
+                        <a class="incident-title" href="{{ url_for('incident_detail', incident_id=incident.id) }}">
+                            {{ incident.title }}
+                        </a>
+                    </div>
+
+                    <div class="badge-row">
+                        <span class="badge severity-{{ incident.severity|slug }}">{{ incident.severity }}</span>
+                        <span class="badge status-{{ incident.status|slug }}">{{ incident.status }}</span>
+                    </div>
+                </div>
+
+                <div class="meta-grid">
+                    <div class="meta-item">
+                        <span>Категория</span>
+                        <strong>{{ incident.category }}</strong>
+                    </div>
+
+                    <div class="meta-item">
+                        <span>Источник</span>
+                        <strong>{{ incident.source_ip or "unknown" }}</strong>
+                    </div>
+
+                    <div class="meta-item">
+                        <span>Актив</span>
+                        <strong>{{ incident.asset }}</strong>
+                    </div>
+
+                    <div class="meta-item">
+                        <span>Ответственный</span>
+                        <strong>{{ incident.assignee }}</strong>
+                    </div>
+                </div>
+
+                <div class="description-box">
+                    {{ incident.description }}
+                </div>
+
+                <div class="actions-grid">
+                    <a class="btn btn-primary" href="{{ url_for('incident_detail', incident_id=incident.id) }}">
+                        Карточка
+                    </a>
+
+                    <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='investigate') }}">
+                        <button type="submit" class="btn-purple">В работу</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='escalate') }}">
+                        <button type="submit" class="btn-yellow">Эскалация</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='close') }}">
+                        <button type="submit" class="btn-green">Закрыть</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='reopen') }}">
+                        <button type="submit" class="btn-soft">Переоткрыть</button>
+                    </form>
+
+                    <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}">
+                        <button type="submit" class="btn-red"
+                                data-confirm="Удалить инцидент #{{ incident.id }}?">
+                            Удалить
+                        </button>
+                    </form>
+                </div>
+            </article>
+        {% else %}
+            <div class="empty-state">
+                По текущим фильтрам инцидентов нет. Либо сеть чистая, либо злоумышленник слишком вежливый.
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if total_pages > 1 %}
+        <div class="pagination">
+            {% for page_number in range(1, total_pages + 1) %}
+                <a class="page-link {% if page_number == page %}active{% endif %}"
+                   href="{{ url_for(
+                        'incidents',
+                        page=page_number,
+                        q=search_query,
+                        severity=selected_severity,
+                        status=selected_status,
+                        category=selected_category
+                   ) }}">
+                    {{ page_number }}
+                </a>
+            {% endfor %}
+        </div>
+    {% endif %}
+</section>
+
+{% endblock %}

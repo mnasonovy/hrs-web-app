@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}HRS SOC · Инцидент #{{ incident.id }}{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <div class="hero-content">
+        <div>
+            <div class="hero-kicker">INCIDENT CARD</div>
+            <h1>Инцидент #{{ incident.id }}</h1>
+            <p>
+                Детальная карточка события безопасности. Здесь можно изменить критичность,
+                статус, ответственного, описание и рекомендации по обработке.
+            </p>
+        </div>
+
+        <div class="status-chip">
+            {{ incident.severity }} · {{ incident.status }}
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">{{ incident.title }}</h2>
+            <p class="panel-subtitle">
+                {{ incident.category }} · {{ incident.asset }} · источник {{ incident.source_ip or "unknown" }}
+            </p>
+        </div>
+
+        <a class="btn btn-soft" href="{{ url_for('incidents') }}">← Назад в реестр</a>
+    </div>
+
+    <div class="badge-row" style="justify-content: flex-start; margin-bottom: 18px;">
+        <span class="badge severity-{{ incident.severity|slug }}">{{ incident.severity }}</span>
+        <span class="badge status-{{ incident.status|slug }}">{{ incident.status }}</span>
+    </div>
+
+    <div class="meta-grid">
+        <div class="meta-item">
+            <span>Категория</span>
+            <strong>{{ incident.category }}</strong>
+        </div>
+
+        <div class="meta-item">
+            <span>Источник</span>
+            <strong>{{ incident.source_ip or "unknown" }}</strong>
+        </div>
+
+        <div class="meta-item">
+            <span>Актив</span>
+            <strong>{{ incident.asset }}</strong>
+        </div>
+
+        <div class="meta-item">
+            <span>Ответственный</span>
+            <strong>{{ incident.assignee }}</strong>
+        </div>
+    </div>
+
+    <div class="two-col">
+        <div class="description-box">
+            <strong>Описание</strong>
+            <br><br>
+            {{ incident.description or "Описание отсутствует." }}
+        </div>
+
+        <div class="description-box">
+            <strong>Рекомендация</strong>
+            <br><br>
+            {{ incident.recommendation or "Рекомендация отсутствует." }}
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Редактирование</h2>
+            <p class="panel-subtitle">Все изменения сохраняются в PostgreSQL.</p>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('update_incident', incident_id=incident.id) }}">
+        <div class="form-grid">
+            <input type="text" name="title" value="{{ incident.title }}" required>
+
+            <select name="severity">
+                {% for severity in severities %}
+                    <option value="{{ severity }}" {% if incident.severity == severity %}selected{% endif %}>
+                        {{ severity }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <select name="status">
+                {% for status in statuses %}
+                    <option value="{{ status }}" {% if incident.status == status %}selected{% endif %}>
+                        {{ status }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <input type="text" name="source_ip" value="{{ incident.source_ip or '' }}" placeholder="IP источника">
+
+            <input type="text" name="asset" value="{{ incident.asset or 'HRS-WEB' }}" placeholder="Актив">
+
+            <button type="submit" class="btn-primary">Сохранить</button>
+
+            <select name="category">
+                {% for category in categories %}
+                    <option value="{{ category }}" {% if incident.category == category %}selected{% endif %}>
+                        {{ category }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <input type="text" name="assignee" value="{{ incident.assignee or 'HRS SOC' }}" placeholder="Ответственный">
+
+            <textarea name="description" placeholder="Описание">{{ incident.description or '' }}</textarea>
+
+            <textarea name="recommendation" placeholder="Рекомендация">{{ incident.recommendation or '' }}</textarea>
+        </div>
+    </form>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Быстрые действия</h2>
+            <p class="panel-subtitle">Оперативная обработка события.</p>
+        </div>
+    </div>
+
+    <div class="actions-grid">
+        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='investigate') }}">
+            <button type="submit" class="btn-purple">Взять в работу</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='escalate') }}">
+            <button type="submit" class="btn-yellow">Эскалировать</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='close') }}">
+            <button type="submit" class="btn-green">Закрыть</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='reopen') }}">
+            <button type="submit" class="btn-soft">Переоткрыть</button>
+        </form>
+
+        <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}">
+            <button type="submit" class="btn-red"
+                    data-confirm="Удалить инцидент #{{ incident.id }}?">
+                Удалить
+            </button>
+        </form>
+    </div>
+</section>
+
+{% endblock %}

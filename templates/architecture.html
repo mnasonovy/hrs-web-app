@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}HRS SOC · Архитектура{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <div class="hero-content">
+        <div>
+            <div class="hero-kicker">HRS SECURE ARCHITECTURE</div>
+            <h1>Архитектура защищённого стенда</h1>
+            <p>
+                Логическая схема HRS: внешний сегмент, NGFW на OPNsense,
+                TS_DMZ через Tailscale, WEB+DB сервер и локальная PostgreSQL.
+                Tailscale используется как защищённый транспорт, а контроль доступа
+                и сегментация остаются на стороне NGFW. Статус NGFW на этой странице
+                проверяется live-check запросом до адреса шлюза NGFW.
+            </p>
+        </div>
+
+        <div class="status-chip">
+            NGFW:
+            {% if ngfw_status == "ONLINE" %}
+                <span class="status-online">ONLINE</span>
+            {% else %}
+                <span class="status-error">{{ ngfw_status }}</span>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Логические зоны</h2>
+            <p class="panel-subtitle">
+                Разделение инфраструктуры на зоны безопасности.
+            </p>
+        </div>
+    </div>
+
+    <div class="arch-grid">
+        <div class="arch-node">
+            <h3>WAN / External</h3>
+            <p>
+                Внешняя сеть и пользовательские подключения. Прямой входящий доступ
+                ограничивается правилами NGFW. Из-за CG-NAT транспорт реализован
+                через Tailscale.
+            </p>
+        </div>
+
+        <div class="arch-node">
+            <h3>OPNsense NGFW</h3>
+            <p>
+                Центральная точка фильтрации. OPNsense отвечает за маршрутизацию,
+                правила межсетевого экрана, разделение зон и контроль доступа.
+            </p>
+        </div>
+
+        <div class="arch-node">
+            <h3>TS_DMZ</h3>
+            <p>
+                DMZ-сегмент поверх Tailscale. WEB-сервер доступен через защищённый
+                туннель, но политики доступа задаются на NGFW.
+            </p>
+        </div>
+
+        <div class="arch-node">
+            <h3>HRS-WEB</h3>
+            <p>
+                Сервер WEB+DB. На нём работают nginx, Flask/Gunicorn,
+                PostgreSQL и механизмы защиты SSH через Fail2Ban.
+            </p>
+        </div>
+
+        <div class="arch-node">
+            <h3>PostgreSQL</h3>
+            <p>
+                База данных приложения. PostgreSQL привязан к 127.0.0.1:5432,
+                поэтому не доступен напрямую из WAN, LAN или TS_DMZ.
+            </p>
+        </div>
+
+        <div class="arch-node">
+            <h3>Fail2Ban-ready</h3>
+            <p>
+                Планируемый механизм защиты SSH от brute-force атак. Срабатывания
+                могут быть отражены в HRS SOC как инциденты безопасности.
+            </p>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Поток данных приложения</h2>
+            <p class="panel-subtitle">
+                Как пользовательский запрос доходит до базы данных.
+            </p>
+        </div>
+    </div>
+
+    <div class="timeline">
+        <div class="timeline-item">
+            <strong>1. Пользователь открывает WEB-интерфейс</strong><br>
+            <span style="color: var(--muted);">
+                Запрос приходит на nginx по HTTP.
+            </span>
+        </div>
+
+        <div class="timeline-item">
+            <strong>2. nginx передаёт запрос во Flask/Gunicorn</strong><br>
+            <span style="color: var(--muted);">
+                Reverse proxy отправляет запрос на 127.0.0.1:8000.
+            </span>
+        </div>
+
+        <div class="timeline-item">
+            <strong>3. Flask выполняет бизнес-логику</strong><br>
+            <span style="color: var(--muted);">
+                Приложение обрабатывает создание, изменение, удаление и поиск инцидентов.
+            </span>
+        </div>
+
+        <div class="timeline-item">
+            <strong>4. PostgreSQL хранит данные</strong><br>
+            <span style="color: var(--muted);">
+                SELECT / INSERT / UPDATE / DELETE выполняются через локальное подключение 127.0.0.1:5432.
+            </span>
+        </div>
+
+        <div class="timeline-item">
+            <strong>5. Ответ возвращается пользователю</strong><br>
+            <span style="color: var(--muted);">
+                Данные из БД отображаются в интерфейсе HRS SOC Command Center.
+            </span>
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Ключевые меры защиты</h2>
+            <p class="panel-subtitle">
+                Что можно показать в отчёте и на защите.
+            </p>
+        </div>
+    </div>
+
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+            <tr>
+                <th>Механизм</th>
+                <th>Назначение</th>
+                <th>Результат</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <tr>
+                <td>OPNsense NGFW</td>
+                <td>Фильтрация и сегментация трафика</td>
+                <td>Контроль доступа между WAN, LAN и TS_DMZ</td>
+            </tr>
+
+            <tr>
+                <td>Tailscale</td>
+                <td>Защищённый overlay-туннель</td>
+                <td>Обход ограничений CG-NAT без проброса портов</td>
+            </tr>
+
+            <tr>
+                <td>PostgreSQL localhost-only</td>
+                <td>Снижение поверхности атаки БД</td>
+                <td>База не слушает внешние интерфейсы</td>
+            </tr>
+
+            <tr>
+                <td>nginx reverse proxy</td>
+                <td>Единая точка входа WEB</td>
+                <td>Запросы идут через nginx к локальному приложению</td>
+            </tr>
+
+            <tr>
+                <td>Fail2Ban</td>
+                <td>Защита SSH от brute-force</td>
+                <td>Автоматическая блокировка подозрительных источников</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</section>
+
+{% endblock %}

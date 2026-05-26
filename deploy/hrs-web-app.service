@@ -1,5 +1,5 @@
 [Unit]
-Description=HRS Security Incident Tracker Flask App
+Description=HRS SOC Command Center Flask Application
 After=network.target postgresql.service
 
 [Service]

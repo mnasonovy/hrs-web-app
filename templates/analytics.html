@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}HRS SOC · Аналитика{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <div class="hero-content">
+        <div>
+            <div class="hero-kicker">SECURITY ANALYTICS</div>
+            <h1>Аналитика инцидентов</h1>
+            <p>
+                Сводная картина по событиям безопасности: критичность, статусы,
+                категории и наиболее затронутые активы инфраструктуры HRS.
+            </p>
+        </div>
+
+        <div class="status-chip">
+            Всего: <span class="status-online">{{ stats.total }}</span>
+        </div>
+    </div>
+</section>
+
+<section class="grid-stats">
+    <div class="stat-card">
+        <div class="stat-label">Всего событий</div>
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-hint">в базе PostgreSQL</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Открыто</div>
+        <div class="stat-value">{{ stats.open_count }}</div>
+        <div class="stat-hint">ожидают реакции</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">В работе</div>
+        <div class="stat-value">{{ stats.investigating_count }}</div>
+        <div class="stat-hint">обрабатываются</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Критические</div>
+        <div class="stat-value">{{ stats.critical_count }}</div>
+        <div class="stat-hint">максимальный риск</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Закрыто</div>
+        <div class="stat-value">{{ stats.closed_count }}</div>
+        <div class="stat-hint">завершено</div>
+    </div>
+</section>
+
+<section class="two-col">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">По критичности</h2>
+                <p class="panel-subtitle">Распределение событий по уровню риска.</p>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Критичность</th>
+                    <th>Количество</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in severity_stats %}
+                    <tr>
+                        <td>
+                            <span class="badge severity-{{ row.severity|slug }}">{{ row.severity }}</span>
+                        </td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">По статусам</h2>
+                <p class="panel-subtitle">Текущее состояние обработки инцидентов.</p>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Статус</th>
+                    <th>Количество</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in status_stats %}
+                    <tr>
+                        <td>
+                            <span class="badge status-{{ row.status|slug }}">{{ row.status }}</span>
+                        </td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<section class="two-col">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">По категориям</h2>
+                <p class="panel-subtitle">Какие классы угроз встречаются чаще.</p>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Категория</th>
+                    <th>Количество</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in category_stats %}
+                    <tr>
+                        <td>{{ row.category }}</td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Наиболее затронутые активы</h2>
+                <p class="panel-subtitle">Где чаще всего фиксируются события.</p>
+            </div>
+        </div>
+
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                <tr>
+                    <th>Актив</th>
+                    <th>Количество</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for row in top_assets %}
+                    <tr>
+                        <td>{{ row.asset }}</td>
+                        <td>{{ row.count }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

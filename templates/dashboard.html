@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+
+{% block title %}HRS SOC · Главный центр{% endblock %}
+
+{% block content %}
+
+<section class="hero">
+    <div class="hero-content">
+        <div>
+            <div class="hero-kicker">HRS SOC COMMAND CENTER</div>
+            <h1>Центр мониторинга инцидентов</h1>
+            <p>
+                Единая панель контроля событий безопасности HRS: DMZ, WEB+DB,
+                PostgreSQL, NGFW, Tailscale и Fail2Ban-ready инфраструктура.
+                Здесь отображается оперативная сводка по инцидентам и критическим событиям.
+            </p>
+        </div>
+
+        <div class="status-chip">
+            PostgreSQL:
+            {% if db_status == "ONLINE" %}
+                <span class="status-online">ONLINE</span>
+            {% else %}
+                <span class="status-error">ERROR</span>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+{% if error_message %}
+<section class="panel">
+    <div class="panel-header">
+        <div>
+            <h2 class="panel-title">Ошибка подключения к БД</h2>
+            <p class="panel-subtitle">Проверь PostgreSQL, .env и пользователя hrs_web_user.</p>
+        </div>
+    </div>
+
+    <div class="description-box">{{ error_message }}</div>
+</section>
+{% endif %}
+
+<section class="grid-stats">
+    <div class="stat-card">
+        <div class="stat-label">Всего инцидентов</div>
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-hint">зарегистрировано в PostgreSQL</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Открыто</div>
+        <div class="stat-value">{{ stats.open_count }}</div>
+        <div class="stat-hint">требуют реакции</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">В работе</div>
+        <div class="stat-value">{{ stats.investigating_count }}</div>
+        <div class="stat-hint">обрабатываются SOC</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Высокая / критическая</div>
+        <div class="stat-value">{{ stats.high_critical_count }}</div>
+        <div class="stat-hint">приоритетные события</div>
+    </div>
+
+    <div class="stat-card">
+        <div class="stat-label">Закрыто</div>
+        <div class="stat-value">{{ stats.closed_count }}</div>
+        <div class="stat-hint">завершённые расследования</div>
+    </div>
+</section>
+
+<section class="two-col">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Критические события</h2>
+                <p class="panel-subtitle">Инциденты с максимальным приоритетом.</p>
+            </div>
+            <a class="btn btn-soft" href="{{ url_for('incidents', severity='критическая') }}">Критические инциденты</a>
+        </div>
+
+        <div class="incident-list">
+            {% for incident in critical_incidents %}
+                <article class="incident-card critical">
+                    <div class="incident-top">
+                        <div class="incident-title-wrap">
+                            <span class="id-badge">#{{ incident.id }}</span>
+                            <a class="incident-title" href="{{ url_for('incident_detail', incident_id=incident.id) }}">
+                                {{ incident.title }}
+                            </a>
+                        </div>
+
+                        <div class="badge-row">
+                            <span class="badge severity-{{ incident.severity|slug }}">{{ incident.severity }}</span>
+                            <span class="badge status-{{ incident.status|slug }}">{{ incident.status }}</span>
+                        </div>
+                    </div>
+
+                    <div class="meta-grid">
+                        <div class="meta-item">
+                            <span>Актив</span>
+                            <strong>{{ incident.asset }}</strong>
+                        </div>
+                        <div class="meta-item">
+                            <span>Источник</span>
+                            <strong>{{ incident.source_ip or "unknown" }}</strong>
+                        </div>
+                    </div>
+                </article>
+            {% else %}
+                <div class="empty-state">Критических открытых инцидентов нет. Красиво живём.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <h2 class="panel-title">Последние события</h2>
+                <p class="panel-subtitle">Свежие записи из базы инцидентов.</p>
+            </div>
+            <a class="btn btn-primary" href="{{ url_for('incidents') }}">Перейти в реестр</a>
+        </div>
+
+        <div class="timeline">
+            {% for incident in recent_incidents %}
+                <div class="timeline-item">
+                    <strong>
+                        <a href="{{ url_for('incident_detail', incident_id=incident.id) }}">
+                            #{{ incident.id }} · {{ incident.title }}
+                        </a>
+                    </strong>
+                    <br>
+                    <span class="badge severity-{{ incident.severity|slug }}">{{ incident.severity }}</span>
+                    <span class="badge status-{{ incident.status|slug }}">{{ incident.status }}</span>
+                    <br>
+                    <span style="color: var(--muted); font-size: 13px;">
+                        {{ incident.category }} · {{ incident.asset }} · {{ incident.created_at.strftime("%Y-%m-%d %H:%M") }}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{% endblock %}

@@ -2,55 +2,67 @@
 
 set -e
 
-export DEBIAN_FRONTEND=noninteractive
-
 APP_DIR="/opt/hrs-web-app"
-APP_USER="webadmin"
+APP_USER="${APP_USER:-webadmin}"
 
-DB_HOST="127.0.0.1"
-DB_PORT="5432"
-DB_NAME="hrs_database"
-DB_USER="hrs_web_user"
-DB_PASSWORD="qwerty!"
+DB_NAME="${DB_NAME:-hrs_database}"
+DB_USER="${DB_USER:-hrs_web_user}"
+DB_PASSWORD="${DB_PASSWORD:-qwerty!}"
 
-echo "[HRS] Checking user..."
+echo "[HRS] Starting deployment..."
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "[HRS][ERROR] Run this script as root:"
+    echo "sudo bash deploy/install_ubuntu.sh"
+    exit 1
+fi
+
 if ! id "$APP_USER" >/dev/null 2>&1; then
-    echo "[HRS][ERROR] User $APP_USER does not exist."
-    echo "Create user $APP_USER or edit deploy/install_ubuntu.sh and deploy/hrs-web-app.service."
+    echo "[HRS][ERROR] User '$APP_USER' does not exist."
+    echo "Create user or run with existing user:"
+    echo "sudo APP_USER=your_user bash deploy/install_ubuntu.sh"
     exit 1
 fi
 
 echo "[HRS] Installing system packages..."
 apt update
-apt install -y \
-    git \
-    python3-venv \
-    python3-pip \
-    nginx \
-    postgresql \
-    postgresql-contrib
+apt install -y python3-venv python3-pip nginx postgresql postgresql-contrib curl
 
-echo "[HRS] Preparing app directory..."
+echo "[HRS] Preparing application directory..."
 mkdir -p "$APP_DIR"
 
-echo "[HRS] Copying project files..."
+echo "[HRS] Stopping old services if they exist..."
+systemctl stop hrs-web-app 2>/dev/null || true
+
+echo "[HRS] Copying application files..."
 rm -rf "$APP_DIR/app.py" \
        "$APP_DIR/requirements.txt" \
        "$APP_DIR/templates" \
+       "$APP_DIR/static" \
        "$APP_DIR/sql" \
        "$APP_DIR/.env.example"
 
-cp -r app.py requirements.txt templates sql .env.example "$APP_DIR/"
+cp app.py "$APP_DIR/"
+cp requirements.txt "$APP_DIR/"
+cp -r templates "$APP_DIR/"
+cp -r static "$APP_DIR/"
+cp -r sql "$APP_DIR/"
+cp .env.example "$APP_DIR/"
 
 echo "[HRS] Preparing .env..."
 if [ ! -f "$APP_DIR/.env" ]; then
     cp "$APP_DIR/.env.example" "$APP_DIR/.env"
 fi
 
+echo "[HRS] Installing systemd and nginx configs..."
+cp deploy/hrs-web-app.service /etc/systemd/system/hrs-web-app.service
+cp deploy/nginx-hrs-web.conf /etc/nginx/sites-available/hrs-web
+
 echo "[HRS] Setting permissions..."
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 
 echo "[HRS] Creating Python virtual environment..."
+rm -rf "$APP_DIR/venv"
 sudo -u "$APP_USER" python3 -m venv "$APP_DIR/venv"
 sudo -u "$APP_USER" "$APP_DIR/venv/bin/pip" install --upgrade pip
 sudo -u "$APP_USER" "$APP_DIR/venv/bin/pip" install -r "$APP_DIR/requirements.txt"
@@ -59,7 +71,7 @@ echo "[HRS] Starting PostgreSQL..."
 systemctl enable postgresql
 systemctl restart postgresql
 
-echo "[HRS] Creating PostgreSQL user and database..."
+echo "[HRS] Creating PostgreSQL role and database..."
 sudo -u postgres psql <<SQL
 DO \$\$
 BEGIN
@@ -67,63 +79,42 @@ BEGIN
         SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DB_USER'
     ) THEN
         CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';
-    ELSE
-        ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';
     END IF;
 END
 \$\$;
+
+ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';
 
 SELECT 'CREATE DATABASE $DB_NAME OWNER $DB_USER'
 WHERE NOT EXISTS (
     SELECT FROM pg_database WHERE datname = '$DB_NAME'
 )\gexec
-
-ALTER DATABASE $DB_NAME OWNER TO $DB_USER;
-GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;
 SQL
 
-echo "[HRS] Granting schema permissions..."
-sudo -u postgres psql -d "$DB_NAME" <<SQL
-GRANT ALL ON SCHEMA public TO $DB_USER;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO $DB_USER;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO $DB_USER;
-SQL
-
-echo "[HRS] Initializing database schema..."
+echo "[HRS] Initializing PostgreSQL schema and demo incidents..."
 PGPASSWORD="$DB_PASSWORD" psql \
-    -h "$DB_HOST" \
-    -p "$DB_PORT" \
+    -h 127.0.0.1 \
     -U "$DB_USER" \
     -d "$DB_NAME" \
     -f "$APP_DIR/sql/init.sql"
 
-echo "[HRS] Installing systemd service..."
-cp deploy/hrs-web-app.service /etc/systemd/system/hrs-web-app.service
-
 echo "[HRS] Configuring nginx..."
-cp deploy/nginx-hrs-web.conf /etc/nginx/sites-available/hrs-web
 rm -f /etc/nginx/sites-enabled/default
 ln -sf /etc/nginx/sites-available/hrs-web /etc/nginx/sites-enabled/hrs-web
+
 nginx -t
 
-echo "[HRS] Starting HRS application..."
+echo "[HRS] Starting application services..."
 systemctl daemon-reload
 systemctl enable hrs-web-app
 systemctl restart hrs-web-app
+systemctl enable nginx
 systemctl restart nginx
 
-echo "[HRS] Final checks:"
-echo "PostgreSQL: $(systemctl is-active postgresql)"
-echo "HRS app:    $(systemctl is-active hrs-web-app)"
-echo "nginx:      $(systemctl is-active nginx)"
-
-echo "[HRS] Listening ports:"
-ss -lntp | grep -E ':80|:8000|:5432' || true
-
-echo "[HRS] Health check:"
-curl -s http://127.0.0.1/health || true
-
+echo "[HRS] Deployment completed successfully."
 echo
-echo "[HRS] Installation complete."
-echo "Open in browser:"
-echo "  http://SERVER_IP/"
+echo "[HRS] Checks:"
+echo "systemctl status hrs-web-app --no-pager"
+echo "systemctl status nginx --no-pager"
+echo "curl http://127.0.0.1/health"
+echo "curl http://127.0.0.1"

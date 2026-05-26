@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}HRS SOC Command Center{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body>
+
+<div class="page-shell">
+    <div class="hrs-layout">
+
+        <aside class="sidebar">
+            <div class="brand-box">
+                <div class="logo-orb">HRS</div>
+
+                <div>
+                    <h2 class="brand-title">HRS SOC</h2>
+                    <p class="brand-subtitle">Hard Reset Squad</p>
+                </div>
+            </div>
+
+            <nav class="nav">
+                <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">
+                    <span class="nav-icon">⌁</span>
+                    <span>Главный центр</span>
+                </a>
+
+                <a class="nav-link {% if active_page == 'incidents' %}active{% endif %}" href="{{ url_for('incidents') }}">
+                    <span class="nav-icon">⚠</span>
+                    <span>Инциденты</span>
+                </a>
+
+                <a class="nav-link {% if active_page == 'analytics' %}active{% endif %}" href="{{ url_for('analytics') }}">
+                    <span class="nav-icon">◈</span>
+                    <span>Аналитика</span>
+                </a>
+
+                <a class="nav-link {% if active_page == 'architecture' %}active{% endif %}" href="{{ url_for('architecture') }}">
+                    <span class="nav-icon">⬡</span>
+                    <span>Архитектура</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <strong>HRS Protected Zone</strong><br>
+                NGFW · DMZ · WEB+DB · PostgreSQL · Fail2Ban-ready<br><br>
+                Статус БД:
+                {% if db_status == "ONLINE" %}
+                    <span class="status-online">ONLINE</span>
+                {% else %}
+                    <span class="status-error">ERROR</span>
+                {% endif %}
+            </div>
+        </aside>
+
+        <main class="main">
+            {% block content %}{% endblock %}
+
+            <div class="footer">
+                HRS Hard Reset Squad © {{ current_year }} · SOC Command Center · учебный стенд ИБАС
+            </div>
+        </main>
+
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
