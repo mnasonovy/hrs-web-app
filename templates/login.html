@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>HRS SOC · AD Access Gateway</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+
+<body class="auth-body">
+
+<div class="auth-shell">
+
+    <section class="auth-card">
+
+        <div class="auth-visual">
+            <div class="auth-visual-content">
+
+                <div class="auth-logo-row">
+                    <div class="auth-logo">HRS</div>
+
+                    <div>
+                        <div class="auth-brand-title">HRS SOC</div>
+                        <div class="auth-brand-subtitle">Hard Reset Squad · AD Access Gateway</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h1 class="auth-big-title">
+                        Secure<br>
+                        <span>Identity</span><br>
+                        Gateway
+                    </h1>
+                </div>
+
+                <div class="auth-terminal">
+                    <div><span class="green">[OK]</span> OPNsense NGFW filtering enabled</div>
+                    <div><span class="green">[OK]</span> WEB → AD LDAP path controlled</div>
+                    <div><span class="yellow">[AD]</span> Domain: hrs.local</div>
+                    <div><span class="yellow">[ROLE]</span> HRS-DomainAdminsLab / HRS-AppAdmins / HRS-Users</div>
+                    <div><span class="green">[DB]</span> PostgreSQL localhost-only</div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="auth-form-side">
+            <div class="auth-kicker">LDAP AUTHENTICATION</div>
+
+            <h1>Вход в HRS SOC</h1>
+
+            <p>
+                Авторизация выполняется через Active Directory.
+                Доступ к панели определяется членством пользователя в доменных группах HRS.
+            </p>
+
+            {% if error_message %}
+                <div class="auth-alert">
+                    {{ error_message }}
+                </div>
+            {% endif %}
+
+            <form method="POST" class="auth-form">
+                <input type="hidden" name="next" value="{{ next_url }}">
+
+                <div class="auth-field">
+                    <label>Доменный логин</label>
+                    <input
+                        type="text"
+                        name="username"
+                        placeholder="user или user@hrs.local"
+                        autocomplete="username"
+                        required
+                        autofocus
+                    >
+                </div>
+
+                <div class="auth-field">
+                    <label>Пароль</label>
+                    <input
+                        type="password"
+                        name="password"
+                        placeholder="Пароль AD"
+                        autocomplete="current-password"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="auth-submit">
+                    Войти через Active Directory
+                </button>
+            </form>
+
+            <div class="auth-hints">
+                <div class="auth-hint">
+                    <strong>HRS-DomainAdminsLab</strong> — полный административный доступ.
+                </div>
+
+                <div class="auth-hint">
+                    <strong>HRS-AppAdmins</strong> — управление инцидентами и приложением.
+                </div>
+
+                <div class="auth-hint">
+                    <strong>HRS-Users</strong> — просмотр панели и аналитики.
+                </div>
+            </div>
+
+            <div class="auth-footer">
+                HRS Hard Reset Squad © {{ current_year }} · NGFW / AD / WEB+DB
+            </div>
+        </div>
+
+    </section>
+
+</div>
+
+</body>
+</html>

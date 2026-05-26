@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}HRS SOC · Доступ запрещён{% endblock %}
+
+{% block content %}
+
+<section class="panel forbidden-card">
+    <div class="forbidden-code">403</div>
+
+    <h1>Доступ запрещён</h1>
+
+    <p class="forbidden-text">
+        Твоя доменная учётная запись успешно прошла аутентификацию,
+        но текущая роль не позволяет выполнять это действие.
+        Для управления инцидентами нужна группа HRS-AppAdmins или HRS-DomainAdminsLab.
+    </p>
+
+    <div class="actions-grid">
+        <a class="btn btn-primary" href="{{ url_for('dashboard') }}">На главный центр</a>
+        <a class="btn btn-soft" href="{{ url_for('incidents') }}">К инцидентам</a>
+        <a class="btn btn-red" href="{{ url_for('logout') }}">Выйти</a>
+    </div>
+</section>
+
+{% endblock %}

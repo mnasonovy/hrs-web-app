@@ -2,15 +2,19 @@ import math
 import os
 import subprocess
 from datetime import datetime
+from functools import wraps
 
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
-from flask import Flask, redirect, render_template, request, url_for
+from flask import Flask, redirect, render_template, request, session, url_for
+from ldap3 import ALL, NTLM, SUBTREE, Connection, Server
+from ldap3.utils.conv import escape_filter_chars
 
 load_dotenv()
 
 app = Flask(__name__)
+app.secret_key = os.getenv("SECRET_KEY", "change-this-secret-key")
 
 SEVERITIES = ["низкая", "средняя", "высокая", "критическая"]
 STATUSES = ["открыт", "в работе", "закрыт"]
@@ -25,10 +29,26 @@ CATEGORIES = [
     "Мониторинг",
 ]
 
+ROLE_LABELS = {
+    "superadmin": "Супер-администратор",
+    "appadmin": "Администратор приложения",
+    "user": "Пользователь",
+}
+
 
 @app.template_filter("slug")
 def slug_filter(value):
     return str(value).lower().replace(" ", "_")
+
+
+@app.context_processor
+def inject_user():
+    user = session.get("user")
+    return {
+        "current_user": user,
+        "role_labels": ROLE_LABELS,
+        "can_manage_incidents": user and user.get("role") in ["superadmin", "appadmin"],
+    }
 
 
 def get_db_connection():
@@ -69,6 +89,163 @@ def execute_query(query, params=None):
     conn.commit()
     cur.close()
     conn.close()
+
+
+def normalize_username(username):
+    username = username.strip()
+
+    if "\\" in username:
+        return username.split("\\", 1)[1]
+
+    if "@" in username:
+        return username.split("@", 1)[0]
+
+    return username
+
+
+def extract_group_names(member_of_values):
+    groups = []
+
+    for dn in member_of_values or []:
+        first_part = str(dn).split(",", 1)[0]
+
+        if first_part.upper().startswith("CN="):
+            groups.append(first_part[3:])
+
+    return groups
+
+
+def resolve_role(groups):
+    superadmin_group = os.getenv("AD_GROUP_SUPERADMIN", "HRS-DomainAdminsLab")
+    appadmin_group = os.getenv("AD_GROUP_APPADMIN", "HRS-AppAdmins")
+    user_group = os.getenv("AD_GROUP_USER", "HRS-Users")
+
+    if superadmin_group in groups:
+        return "superadmin"
+
+    if appadmin_group in groups:
+        return "appadmin"
+
+    if user_group in groups:
+        return "user"
+
+    return None
+
+
+def authenticate_ad(username, password):
+    ad_server = os.getenv("AD_SERVER", "10.10.10.10")
+    ad_port = int(os.getenv("AD_PORT", "389"))
+    ad_domain = os.getenv("AD_DOMAIN", "hrs.local")
+    ad_base_dn = os.getenv("AD_BASE_DN", "DC=hrs,DC=local")
+    ad_use_ssl = os.getenv("AD_USE_SSL", "false").lower() == "true"
+    ad_auth_method = os.getenv("AD_AUTH_METHOD", "NTLM").upper()
+    ad_netbios_domain = os.getenv("AD_NETBIOS_DOMAIN", "HRS")
+
+    short_username = normalize_username(username)
+
+    if not short_username or not password:
+        return None, "Введите логин и пароль."
+
+    try:
+        server = Server(
+            ad_server,
+            port=ad_port,
+            use_ssl=ad_use_ssl,
+            get_info=ALL,
+        )
+
+        if ad_auth_method == "NTLM":
+            bind_user = f"{ad_netbios_domain}\\{short_username}"
+            conn = Connection(
+                server,
+                user=bind_user,
+                password=password,
+                authentication=NTLM,
+                auto_bind=True,
+            )
+        else:
+            if "\\" in username or "@" in username:
+                bind_user = username
+            else:
+                bind_user = f"{short_username}@{ad_domain}"
+
+            conn = Connection(
+                server,
+                user=bind_user,
+                password=password,
+                auto_bind=True,
+            )
+
+        search_filter = (
+            f"(&(objectClass=user)(sAMAccountName={escape_filter_chars(short_username)}))"
+        )
+
+        conn.search(
+            search_base=ad_base_dn,
+            search_filter=search_filter,
+            search_scope=SUBTREE,
+            attributes=["cn", "displayName", "memberOf", "sAMAccountName"],
+        )
+
+        if not conn.entries:
+            conn.unbind()
+            return None, "Пользователь найден по паролю, но не найден в LDAP-поиске."
+
+        entry = conn.entries[0]
+
+        member_of = []
+        if hasattr(entry, "memberOf") and entry.memberOf:
+            member_of = entry.memberOf.values
+
+        groups = extract_group_names(member_of)
+        role = resolve_role(groups)
+
+        if not role:
+            conn.unbind()
+            return None, "Пользователь не состоит в разрешённых группах HRS."
+
+        display_name = str(entry.displayName) if hasattr(entry, "displayName") else short_username
+
+        conn.unbind()
+
+        return {
+            "username": short_username,
+            "display_name": display_name,
+            "role": role,
+            "role_label": ROLE_LABELS.get(role, role),
+            "groups": groups,
+        }, None
+
+    except Exception as exc:
+        return None, f"Ошибка LDAP-аутентификации: {exc}"
+
+
+def login_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login", next=request.path))
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def admin_required(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        user = session.get("user")
+
+        if not user:
+            return redirect(url_for("login", next=request.path))
+
+        if user.get("role") not in ["superadmin", "appadmin"]:
+            context = get_context("forbidden")
+            return render_template("forbidden.html", **context), 403
+
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 def get_stats():
@@ -193,7 +370,41 @@ def get_context(active_page):
     }
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "user" in session and request.method == "GET":
+        return redirect(url_for("dashboard"))
+
+    error_message = None
+    next_url = request.args.get("next") or request.form.get("next") or url_for("dashboard")
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+
+        user, error_message = authenticate_ad(username, password)
+
+        if user:
+            session.clear()
+            session["user"] = user
+            return redirect(next_url)
+
+    return render_template(
+        "login.html",
+        error_message=error_message,
+        next_url=next_url,
+        current_year=datetime.now().year,
+    )
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
+
 @app.route("/")
+@login_required
 def dashboard():
     context = get_context("dashboard")
     stats = get_stats()
@@ -246,6 +457,7 @@ def dashboard():
 
 
 @app.route("/incidents")
+@login_required
 def incidents():
     context = get_context("incidents")
     filter_data = build_incident_filters()
@@ -331,6 +543,7 @@ def incidents():
 
 
 @app.route("/incident/<int:incident_id>")
+@login_required
 def incident_detail(incident_id):
     context = get_context("incidents")
 
@@ -363,6 +576,7 @@ def incident_detail(incident_id):
 
 
 @app.route("/incidents/add", methods=["POST"])
+@admin_required
 def add_incident():
     title = request.form.get("title", "").strip()
     severity = request.form.get("severity", "средняя").strip()
@@ -417,6 +631,7 @@ def add_incident():
 
 
 @app.route("/incident/<int:incident_id>/update", methods=["POST"])
+@admin_required
 def update_incident(incident_id):
     title = request.form.get("title", "").strip()
     severity = request.form.get("severity", "средняя").strip()
@@ -472,6 +687,7 @@ def update_incident(incident_id):
 
 
 @app.route("/incident/<int:incident_id>/delete", methods=["POST"])
+@admin_required
 def delete_incident(incident_id):
     execute_query(
         """
@@ -485,6 +701,7 @@ def delete_incident(incident_id):
 
 
 @app.route("/incident/<int:incident_id>/action/<action>", methods=["POST"])
+@admin_required
 def incident_action(incident_id, action):
     if action == "close":
         execute_query(
@@ -533,6 +750,7 @@ def incident_action(incident_id, action):
 
 
 @app.route("/analytics")
+@login_required
 def analytics():
     context = get_context("analytics")
     stats = get_stats()
@@ -595,6 +813,7 @@ def analytics():
 
 
 @app.route("/architecture")
+@login_required
 def architecture():
     context = get_context("architecture")
     return render_template("architecture.html", **context)
