@@ -1,0 +1,15 @@
+[Unit]
+Description=HRS Security Incident Tracker Flask App
+After=network.target postgresql.service
+
+[Service]
+User=webadmin
+Group=webadmin
+WorkingDirectory=/opt/hrs-web-app
+EnvironmentFile=/opt/hrs-web-app/.env
+ExecStart=/opt/hrs-web-app/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8000 app:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

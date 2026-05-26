@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>HRS SOC Command Center</title>
+
+    <style>
+        :root {
+            --bg-main: #060b16;
+            --bg-card: rgba(15, 23, 42, 0.92);
+            --bg-card-soft: rgba(30, 41, 59, 0.9);
+            --border: rgba(148, 163, 184, 0.22);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --blue: #3b82f6;
+            --cyan: #22d3ee;
+            --green: #22c55e;
+            --yellow: #facc15;
+            --orange: #fb923c;
+            --red: #ef4444;
+            --purple: #a855f7;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background:
+                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.22), transparent 30%),
+                radial-gradient(circle at 90% 15%, rgba(168, 85, 247, 0.20), transparent 30%),
+                radial-gradient(circle at 50% 100%, rgba(34, 211, 238, 0.12), transparent 35%),
+                var(--bg-main);
+            color: var(--text-main);
+        }
+
+        .page {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 34px 24px 60px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            gap: 20px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, var(--blue), var(--cyan));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 20px;
+            box-shadow: 0 0 40px rgba(34, 211, 238, 0.35);
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 30px;
+            letter-spacing: -0.5px;
+        }
+
+        .brand p {
+            margin: 5px 0 0;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .status-pill {
+            padding: 10px 16px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.78);
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .status-ok {
+            color: var(--green);
+        }
+
+        .status-error {
+            color: var(--red);
+        }
+
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .stat-card {
+            padding: 20px;
+            border-radius: 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            box-shadow: 0 18px 55px rgba(0, 0, 0, 0.25);
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 34px;
+            font-weight: 900;
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 22px;
+            margin-bottom: 22px;
+            box-shadow: 0 18px 55px rgba(0, 0, 0, 0.22);
+        }
+
+        .panel h2 {
+            margin: 0 0 18px;
+            font-size: 21px;
+        }
+
+        .error-box {
+            background: rgba(127, 29, 29, 0.75);
+            border: 1px solid rgba(248, 113, 113, 0.35);
+            color: #fecaca;
+            padding: 14px;
+            border-radius: 14px;
+            margin-top: 12px;
+            font-size: 14px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 150px 170px 180px 180px 130px;
+            gap: 12px;
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 180px 180px 130px;
+            gap: 12px;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: 12px 13px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            background: rgba(2, 6, 23, 0.7);
+            color: var(--text-main);
+            outline: none;
+        }
+
+        input:focus, select:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12);
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            font-weight: 800;
+            transition: 0.15s ease;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.08);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--blue), var(--cyan));
+            color: white;
+        }
+
+        .btn-soft {
+            background: rgba(51, 65, 85, 0.9);
+            color: #e2e8f0;
+        }
+
+        .btn-green {
+            background: rgba(34, 197, 94, 0.18);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.35);
+        }
+
+        .btn-yellow {
+            background: rgba(250, 204, 21, 0.16);
+            color: #fde68a;
+            border: 1px solid rgba(250, 204, 21, 0.35);
+        }
+
+        .btn-red {
+            background: rgba(239, 68, 68, 0.17);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.38);
+        }
+
+        .btn-purple {
+            background: rgba(168, 85, 247, 0.18);
+            color: #e9d5ff;
+            border: 1px solid rgba(168, 85, 247, 0.35);
+        }
+
+        .incidents {
+            display: grid;
+            gap: 16px;
+        }
+
+        .incident {
+            background: var(--bg-card-soft);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 18px;
+        }
+
+        .incident-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 15px;
+        }
+
+        .incident-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .incident-title strong {
+            font-size: 18px;
+        }
+
+        .id-badge {
+            color: #bfdbfe;
+            background: rgba(59, 130, 246, 0.18);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-weight: 800;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 11px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .severity-low {
+            background: rgba(34, 197, 94, 0.16);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.35);
+        }
+
+        .severity-medium {
+            background: rgba(250, 204, 21, 0.16);
+            color: #fde68a;
+            border: 1px solid rgba(250, 204, 21, 0.35);
+        }
+
+        .severity-high {
+            background: rgba(251, 146, 60, 0.16);
+            color: #fed7aa;
+            border: 1px solid rgba(251, 146, 60, 0.35);
+        }
+
+        .severity-critical {
+            background: rgba(239, 68, 68, 0.18);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.42);
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.18);
+        }
+
+        .status-open {
+            background: rgba(59, 130, 246, 0.16);
+            color: #bfdbfe;
+            border: 1px solid rgba(59, 130, 246, 0.35);
+        }
+
+        .status-investigating {
+            background: rgba(168, 85, 247, 0.16);
+            color: #e9d5ff;
+            border: 1px solid rgba(168, 85, 247, 0.35);
+        }
+
+        .status-closed {
+            background: rgba(34, 197, 94, 0.16);
+            color: #bbf7d0;
+            border: 1px solid rgba(34, 197, 94, 0.35);
+        }
+
+        .meta {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            padding: 12px;
+            background: rgba(2, 6, 23, 0.45);
+            border-radius: 14px;
+            border: 1px solid rgba(148, 163, 184, 0.14);
+        }
+
+        .meta-item span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .meta-item strong {
+            font-size: 14px;
+        }
+
+        .edit-grid {
+            display: grid;
+            grid-template-columns: 1.3fr 140px 160px 150px 170px 115px;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+        }
+
+        .actions form {
+            margin: 0;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+        }
+
+        .footer {
+            margin-top: 28px;
+            color: var(--text-muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        @media (max-width: 1100px) {
+            .grid-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .form-grid,
+            .filter-grid,
+            .edit-grid,
+            .meta,
+            .actions {
+                grid-template-columns: 1fr;
+            }
+
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+<div class="page">
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="logo">HRS</div>
+            <div>
+                <h1>Security Operations Command Center</h1>
+                <p>Hard Reset Squad · Incident Response · PostgreSQL-backed SOC panel</p>
+            </div>
+        </div>
+
+        <div class="status-pill">
+            Database:
+            {% if db_status == "OK" %}
+                <span class="status-ok">ONLINE</span>
+            {% else %}
+                <span class="status-error">ERROR</span>
+            {% endif %}
+        </div>
+    </header>
+
+    {% if error_message %}
+        <div class="panel">
+            <h2>Ошибка подключения к БД</h2>
+            <div class="error-box">{{ error_message }}</div>
+        </div>
+    {% endif %}
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <div class="stat-label">Total incidents</div>
+            <div class="stat-value">{{ stats.total }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Open</div>
+            <div class="stat-value">{{ stats.open }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Investigating</div>
+            <div class="stat-value">{{ stats.investigating }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">High / Critical</div>
+            <div class="stat-value">{{ stats.high_critical }}</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-label">Closed</div>
+            <div class="stat-value">{{ stats.closed }}</div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Создать новый инцидент</h2>
+
+        <form method="POST" class="form-grid">
+            <input type="text" name="title" placeholder="Название инцидента" required>
+
+            <select name="severity">
+                <option value="low">low</option>
+                <option value="medium" selected>medium</option>
+                <option value="high">high</option>
+                <option value="critical">critical</option>
+            </select>
+
+            <select name="status">
+                <option value="open" selected>open</option>
+                <option value="investigating">investigating</option>
+                <option value="closed">closed</option>
+            </select>
+
+            <input type="text" name="source_ip" placeholder="Source IP">
+
+            <input type="text" name="assignee" placeholder="Assignee" value="HRS SOC">
+
+            <button type="submit" class="btn-primary">Создать</button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Фильтры и поиск</h2>
+
+        <form method="GET" class="filter-grid">
+            <input type="text" name="q" placeholder="Поиск по названию, IP, ответственному" value="{{ search_query }}">
+
+            <select name="severity">
+                <option value="all" {% if selected_severity == "all" %}selected{% endif %}>all severities</option>
+                {% for severity in severities %}
+                    <option value="{{ severity }}" {% if selected_severity == severity %}selected{% endif %}>
+                        {{ severity }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <select name="status">
+                <option value="all" {% if selected_status == "all" %}selected{% endif %}>all statuses</option>
+                {% for status in statuses %}
+                    <option value="{{ status }}" {% if selected_status == status %}selected{% endif %}>
+                        {{ status }}
+                    </option>
+                {% endfor %}
+            </select>
+
+            <button type="submit" class="btn-soft">Применить</button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <h2>Активные инциденты</h2>
+
+        <div class="incidents">
+            {% for incident in incidents %}
+                <article class="incident">
+
+                    <div class="incident-head">
+                        <div class="incident-title">
+                            <span class="id-badge">#{{ incident.id }}</span>
+                            <strong>{{ incident.title }}</strong>
+                        </div>
+
+                        <div>
+                            <span class="badge severity-{{ incident.severity }}">{{ incident.severity }}</span>
+                            <span class="badge status-{{ incident.status }}">{{ incident.status }}</span>
+                        </div>
+                    </div>
+
+                    <div class="meta">
+                        <div class="meta-item">
+                            <span>Source IP</span>
+                            <strong>{{ incident.source_ip or "unknown" }}</strong>
+                        </div>
+
+                        <div class="meta-item">
+                            <span>Assignee</span>
+                            <strong>{{ incident.assignee or "HRS SOC" }}</strong>
+                        </div>
+
+                        <div class="meta-item">
+                            <span>Created</span>
+                            <strong>
+                                {% if incident.created_at %}
+                                    {{ incident.created_at.strftime("%Y-%m-%d %H:%M") }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </strong>
+                        </div>
+
+                        <div class="meta-item">
+                            <span>Updated</span>
+                            <strong>
+                                {% if incident.updated_at %}
+                                    {{ incident.updated_at.strftime("%Y-%m-%d %H:%M") }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </strong>
+                        </div>
+                    </div>
+
+                    <form method="POST" action="{{ url_for('update_incident', incident_id=incident.id) }}" class="edit-grid">
+                        <input type="text" name="title" value="{{ incident.title }}" required>
+
+                        <select name="severity">
+                            {% for severity in severities %}
+                                <option value="{{ severity }}" {% if incident.severity == severity %}selected{% endif %}>
+                                    {{ severity }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <select name="status">
+                            {% for status in statuses %}
+                                <option value="{{ status }}" {% if incident.status == status %}selected{% endif %}>
+                                    {{ status }}
+                                </option>
+                            {% endfor %}
+                        </select>
+
+                        <input type="text" name="source_ip" value="{{ incident.source_ip or '' }}" placeholder="Source IP">
+
+                        <input type="text" name="assignee" value="{{ incident.assignee or 'HRS SOC' }}" placeholder="Assignee">
+
+                        <button type="submit" class="btn-primary">Сохранить</button>
+                    </form>
+
+                    <div class="actions">
+                        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='investigate') }}">
+                            <button type="submit" class="btn-purple">Investigate</button>
+                        </form>
+
+                        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='escalate') }}">
+                            <button type="submit" class="btn-yellow">Escalate</button>
+                        </form>
+
+                        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='close') }}">
+                            <button type="submit" class="btn-green">Close</button>
+                        </form>
+
+                        <form method="POST" action="{{ url_for('incident_action', incident_id=incident.id, action='reopen') }}">
+                            <button type="submit" class="btn-soft">Reopen</button>
+                        </form>
+
+                        <form method="POST" action="{{ url_for('delete_incident', incident_id=incident.id) }}">
+                            <button type="submit" class="btn-red" onclick="return confirm('Удалить инцидент #{{ incident.id }}?')">
+                                Delete
+                            </button>
+                        </form>
+                    </div>
+
+                </article>
+            {% else %}
+                <div class="empty">
+                    Инцидентов по выбранным фильтрам нет. SOC отдыхает, но недолго.
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <div class="footer">
+        HRS Hard Reset Squad © {{ current_year }} · NGFW / DMZ / WEB+DB / Fail2Ban-ready
+    </div>
+
+</div>
+</body>
+</html>
