@@ -1,4 +1,15 @@
-venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+venv/
 .env
+*.log
+*.bak
+*.backup
+app.py.bak.*
+templates/*.bak.*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

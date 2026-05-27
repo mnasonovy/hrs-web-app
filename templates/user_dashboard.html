@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}HRS User Portal{% endblock %}
+
+{% block content %}
+<section class="hero-panel">
+    <div class="hero-content">
+        <p class="eyebrow">HRS SECURE ACCESS</p>
+        <h1>👤 Пользовательский портал</h1>
+        <p class="hero-subtitle">
+            Доступ ограничен безопасным просмотром состояния стенда и общей информации.
+        </p>
+
+        <div class="hero-meta">
+            <span>Пользователь: {{ current_user.display_name or current_user.username }}</span>
+            <span>Роль: {{ role_labels.get(current_user.role, current_user.role) }}</span>
+        </div>
+    </div>
+</section>
+
+<div class="grid two-columns">
+    <article class="card">
+        <div class="card-header">
+            <h2>📊 Статус стенда</h2>
+            <span class="badge badge-{{ db_status|lower }}">{{ db_status }}</span>
+        </div>
+
+        <div class="status-list">
+            <div class="status-row">
+                <span>PostgreSQL</span>
+                <strong class="{{ 'ok' if db_status == 'ONLINE' else 'danger' }}">
+                    {{ db_status }}
+                </strong>
+            </div>
+
+            <div class="status-row">
+                <span>OPNsense NGFW</span>
+                <strong class="{{ 'ok' if ngfw_status == 'ONLINE' else 'warning' }}">
+                    {{ ngfw_status }}
+                </strong>
+            </div>
+
+            <div class="status-row">
+                <span>WEB Portal</span>
+                <strong class="ok">ONLINE</strong>
+            </div>
+        </div>
+
+        {% if error_message %}
+        <p class="alert danger">DB error: {{ error_message }}</p>
+        {% endif %}
+    </article>
+
+    <article class="card">
+        <div class="card-header">
+            <h2>🔗 Быстрый доступ</h2>
+        </div>
+
+        <div class="action-stack">
+            <a class="btn primary" href="{{ url_for('dashboard') }}">Обновить статус</a>
+            <a class="btn secondary" href="{{ url_for('architecture') }}">Посмотреть архитектуру</a>
+            <a class="btn ghost" href="{{ url_for('logout') }}">Выйти</a>
+        </div>
+    </article>
+</div>
+
+<div class="grid three-columns">
+    <article class="mini-card">
+        <span class="mini-icon">🧱</span>
+        <h3>NGFW</h3>
+        <p>Фильтрация трафика, сегментация LAN/DMZ/WAN и контроль маршрутов.</p>
+    </article>
+
+    <article class="mini-card">
+        <span class="mini-icon">🌐</span>
+        <h3>WEB</h3>
+        <p>Публичный веб-сервис в DMZ. Доступ к backend закрыт через reverse proxy.</p>
+    </article>
+
+    <article class="mini-card">
+        <span class="mini-icon">🛡</span>
+        <h3>Security</h3>
+        <p>Fail2Ban, разграничение доступа и принцип минимальных привилегий.</p>
+    </article>
+</div>
+{% endblock %}

@@ -406,6 +406,12 @@ def logout():
 @app.route("/")
 @login_required
 def dashboard():
+    user = session.get("user")
+
+    if user and user.get("role") == "user":
+        context = get_context("dashboard")
+        return render_template("user_dashboard.html", **context)
+
     context = get_context("dashboard")
     stats = get_stats()
 
@@ -457,7 +463,7 @@ def dashboard():
 
 
 @app.route("/incidents")
-@login_required
+@admin_required
 def incidents():
     context = get_context("incidents")
     filter_data = build_incident_filters()
@@ -750,7 +756,7 @@ def incident_action(incident_id, action):
 
 
 @app.route("/analytics")
-@login_required
+@admin_required
 def analytics():
     context = get_context("analytics")
     stats = get_stats()
